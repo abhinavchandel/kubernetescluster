@@ -1,0 +1,81 @@
+Microservice Application on local k8s cluster:
+==============================================
+Product Service
+https://github.com/abhinavchandel/product.git
+
+Customer Service
+https://github.com/abhinavchandel/customer.git
+
+Employee Service
+https://github.com/abhinavchandel/exlemployee.git
+
+o To deploy the microservices in kubernetes platform, first we need to containerize them
+Dockerfile, in each repo, which has the steps to create container images.
+
+o There are different tools to bring up kubernetes locally, In our case we're using k3d (kubernetes on docker, https://k3d.io)
+  o One of the advantage we get from this tool is we can have a HA cluster.
+  o In our case we're creating
+    - 1 master
+    - 3 worker nodes
+  o The prerequistes for the above setup is the following
+    - k3d (tool to spin up kubernetes with k3s distribution)
+    - kubectl (cli tool to interact with kubernetes api server)
+    - helm (package manager, we're using to deploy postgres server)
+    - Docker installed
+  o Steps to create cluster
+    - k3d cluster create test --port 8080:80@loadbalancer --port 8443:443@loadbalancer --api-port 6443 --servers 1 --agents 3 --image rancher/k3s:v1.18.6-k3s1
+    - kubectl get nodes
+  o Deploying applications to kubernetes cluster
+    - We already containerized the microservices and pushed, in my case I put it in dockerhub public container registry
+      - dhanunjaya/customer:0.0.4 (docker build -t dhanunjaya/customer:0.0.3 . [in each repo, where the Dockerfile exists we need to run to build images])
+      - dhanunjaya/product:0.0.8  (docker build -t dhanunjaya/product:0.0.7 . [in each repo, where the Dockerfile exists we need to run to build images])
+      - dhanunjaya/exlemployee:0.0.7 (docker build -t dhanunjaya/exlemployee:0.0.6 . [in each repo, where the Dockerfile exists we need to run to build images])
+    - Depoy postgress with helm
+      - helm repo list
+	helm repo add bitnami https://charts.bitnami.com/bitnami
+	helm repo list
+	helm repo update
+	helm search repo postgres
+	helm install postgres bitnami/postgresql
+      - kubectl exec -it postgres-postgresql-0 sh
+      - psql -U postgres
+	create database product
+	create database nclt_1507
+    - In our case we're deploying through imperative commands, instead of deploying it in declarative way
+    - kubectl create deployment customer --image=dhanunjaya/customer:0.0.3
+      kubectl create deployment product --image=dhanunjaya/product:0.0.7
+      kubectl create deployment exlemployee --image=dhanunjaya/exlemployee:0.0.6
+    - kubectl create service clusterip customer --tcp=8080:8080
+      kubectl create service clusterip product --tcp=8081:8080
+      kubectl create service clusterip exlemployee --tcp=8082:8080
+  o Deploy the dashboard (followed the below link)
+    - https://gist.github.com/smijar/64e76808c8a349eb64f56c71dc03d8d8
+
+Microservice Application on Azure k8s (AKS)
+===========================================
+
+o Create a cluster in azure
+o Configure kubectl to connect to AKS cluster
+  - az aks get-credentials --resource-group bits-aks-rg --name bits-aks
+  - kubectl get nodes
+  - Depoy postgress with helm
+      - helm repo list
+	helm repo add bitnami https://charts.bitnami.com/bitnami
+	helm repo list
+	helm repo update
+	helm search repo postgres
+	helm install postgres bitnami/postgresql
+      - kubectl exec -it postgres-postgresql-0 sh
+      - psql -U postgres
+	create database product;
+	create database nclt_1507;
+  - kubectl create deployment customer --image=dhanunjaya/customer:0.0.4
+  - kubectl create deployment product --image=dhanunjaya/product:0.0.8
+  - kubectl create deployment exlemployee --image=dhanunjaya/exlemployee:0.0.7
+  - kubectl expose deployment customer --port=8080 --target-port=8080 \
+        --name=customer --type=LoadBalancer
+  - kubectl expose deployment product --port=8081 --target-port=8080 \
+        --name=product --type=LoadBalancer
+  - kubectl expose deployment exlemployee --port=8082 --target-port=8080 \
+        --name=exlemployee --type=LoadBalancer
+      
